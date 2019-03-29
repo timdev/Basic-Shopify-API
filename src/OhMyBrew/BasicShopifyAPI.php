@@ -179,8 +179,6 @@ class BasicShopifyAPI implements LoggerAwareInterface
                 'Content-Type' => 'application/json',
             ],
         ]);
-
-        return $this;
     }
 
     /**
