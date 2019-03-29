@@ -140,8 +140,6 @@ class BasicShopifyAPI
                 'Content-Type' => 'application/json',
             ],
         ]);
-
-        return $this;
     }
 
     /**
