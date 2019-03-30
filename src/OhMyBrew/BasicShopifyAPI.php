@@ -454,7 +454,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
     /**
      * Returns the base URI to use.
      *
-     * @return \Guzzle\Psr7\Uri
+     * @return \GuzzleHttp\Psr7\Uri
      */
     public function getBaseUri()
     {
@@ -709,8 +709,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
      * @param array|null $params Optional parameters to send with the request
      *
      * @throws Exception
-     *
-     * @return object An Object of the Guzzle response, and JSON-decoded body
+     * @return object An object with properties containing the Guzzle Response and the JSON-decoded body content
      */
     public function rest(string $type, string $path, array $params = null)
     {
