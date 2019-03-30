@@ -646,13 +646,14 @@ class BasicShopifyAPI implements LoggerAwareInterface
      *
      * @param string $query     The GraphQL query
      * @param array  $variables The optional variables for the query
+     * @param string $path      Endpoint path for request.
      *
      * @throws \Exception When missing api password is missing for private apps
      * @throws \Exception When missing access key is missing for public apps
      *
      * @return object An Object of the Guzzle response, and JSON-decoded body
      */
-    public function graph(string $query, array $variables = [])
+    private function _graph(string $query, array $variables = [], $path = '/admin/api/graphql.json')
     {
         // Build the request
         $request = ['query' => $query];
@@ -669,7 +670,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
         $response = $this->client->request(
             'POST',
             $this->getBaseUri()->withPath(
-                $this->versionPath('/admin/api/graphql.json')
+                $this->versionPath($path)
             ),
             ['body' => $req]
         );
@@ -700,6 +701,17 @@ class BasicShopifyAPI implements LoggerAwareInterface
             'timestamps' => [$tmpTimestamp, $this->requestTimestamp],
         ];
     }
+
+    public function graph(string $query, array $variables = [])
+    {
+        return $this->_graph($query, $variables);
+    }
+
+    public function storefront(string $query, array $variables = [])
+    {
+        return $this->_graph($query, $variables, '/api/graphql.json');
+    }
+
 
     /**
      * Runs a request to the Shopify API.
