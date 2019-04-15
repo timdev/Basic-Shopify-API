@@ -18,6 +18,14 @@ use GuzzleHttp\Psr7\Uri;
 class BasicShopifyAPI
 {
     /**
+     * Paths to GraphQL endpoints.
+     */
+    const GRAPHQL_PATHS = [
+        'admin' => '/admin/api/graphql.json',
+        'storefront' => '/api/graphql.json'
+    ];
+
+    /**
      * The Guzzle client.
      *
      * @var \GuzzleHttp\Client
@@ -58,6 +66,12 @@ class BasicShopifyAPI
      * @var string
      */
     protected $apiSecret;
+
+    /**
+     * The Storefront API access token
+     * @var string
+     */
+    protected $storefrontToken;
 
     /**
      * If API calls are from a public or private app.
@@ -264,6 +278,18 @@ class BasicShopifyAPI
         $this->apiPassword = $apiPassword;
 
         return $this;
+    }
+
+    public function setStorefrontToken(string $token)
+    {
+        $this->storefrontToken = $token;
+
+        return $this;
+    }
+
+    public function getStorefrontToken()
+    {
+        return $this->storefrontToken;
     }
 
     /**
@@ -497,11 +523,11 @@ class BasicShopifyAPI
      * @param string $query     The GraphQL query
      * @param array  $variables The optional variables for the query
      * @param string $path      Endpoint path for request.
-     * 
+     *
      * @throws \Exception When missing api password is missing for private apps
      * @throws \Exception When missing access key is missing for public apps
      *
-     * @return array An array of the Guzzle response, and JSON-decoded body
+     * @return object An object containing of the Guzzle response, and JSON-decoded body
      */
     private function _graph(string $query, array $variables = [], $path = '/admin/api/graphql.json')
     {
@@ -545,17 +571,17 @@ class BasicShopifyAPI
             'timestamps' => [$tmpTimestamp, $this->requestTimestamp],
         ];
     }
-    
+
     public function graph(string $query, array $variables = [])
     {
-        return $this->_graph($query, $variables);
+        return $this->_graph($query, $variables, self::GRAPHQL_PATHS['admin']);
     }
-    
+
     public function storefront(string $query, array $variables = [])
     {
-        return $this->_graph($query, $variables, '/api/graphql.json');
+        return $this->_graph($query, $variables, self::GRAPHQL_PATHS['storefront']);
     }
-    
+
 
     /**
      * Runs a request to the Shopify API.
@@ -644,8 +670,7 @@ class BasicShopifyAPI
      * Also modifies issues with redirects.
      *
      * @param Request $request
-     *
-     * @return void
+     * @return Request
      */
     public function authRequest(Request $request)
     {
@@ -665,7 +690,7 @@ class BasicShopifyAPI
                     // Add the basic auth header
                     return $request->withHeader(
                         'Authorization',
-                        'Basic '.base64_encode("{$this->apiKey}:{$this->apiPassword}")
+                        'Basic ' . base64_encode("{$this->apiKey}:{$this->apiPassword}")
                     );
                 }
 
@@ -674,8 +699,22 @@ class BasicShopifyAPI
                     'X-Shopify-Access-Token',
                     $this->accessToken
                 );
-            } else {
-                // Checks for Graph
+
+            }
+
+            if ($this->isStorefrontGraphRequest($uri)) {
+                // Checks for Storefront-Graph
+                if(null === $this->storefrontToken){
+                    throw new Exception('Storefront access token required for Shopify Storefront GraphQL calls');
+                }
+                return $request->withHeader(
+                    'X-Shopify-Storefront-Access-Token',
+                    $this->storefrontToken
+                );
+            }
+
+            if ($this->isAdminGraphRequest($uri)) {
+                // Checks for Admin-Graph
                 if ($this->private && ($this->apiPassword === null && $this->accessToken === null)) {
                     // Private apps need password for use as access token
                     throw new Exception('API password/access token required for private Shopify GraphQL calls');
@@ -736,9 +775,20 @@ class BasicShopifyAPI
      *
      * @return bool
      */
-    protected function isGraphRequest(Uri $uri)
+    protected function isAdminGraphRequest(Uri $uri)
     {
-        return strpos((string) $uri, 'graphql.json') !== false;
+        return $uri->getPath() === self::GRAPHQL_PATHS['admin'];
+    }
+
+    /**
+     * Determines if the request
+     * @param Uri $uri
+     *
+     * @return bool
+     */
+    protected function isStorefrontGraphRequest(Uri $uri)
+    {
+        return $uri->getPath() === self::GRAPHQL_PATHS['storefront'];
     }
 
     /**
@@ -750,7 +800,10 @@ class BasicShopifyAPI
      */
     protected function isRestRequest(Uri $uri)
     {
-        return $this->isGraphRequest($uri) === false;
+        return
+            $this->isAdminGraphRequest($uri) === false
+            &&
+            $this->isStorefrontGraphRequest($uri) === false;
     }
 
     /**

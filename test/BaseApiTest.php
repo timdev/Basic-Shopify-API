@@ -100,30 +100,42 @@ class BaseApiTest extends BaseTest
         $api->setShop('example.myshopify.com');
 
         // Make the methods accessible
-        $isGraphRequest = new ReflectionMethod($api, 'isGraphRequest');
-        $isGraphRequest->setAccessible(true);
+        $isAdminGraphRequest = new ReflectionMethod($api, 'isAdminGraphRequest');
+        $isAdminGraphRequest->setAccessible(true);
         $isRestRequest = new ReflectionMethod($api, 'isRestRequest');
         $isRestRequest->setAccessible(true);
+        $isStorefrontGraphRequest = new ReflectionMethod($api, 'isStorefrontGraphRequest');
+        $isStorefrontGraphRequest->setAccessible(true);
         $isAuthableRequest = new ReflectionMethod($api, 'isAuthableRequest');
         $isAuthableRequest->setAccessible(true);
 
         // REST
         $uri = $api->getBaseUri()->withPath('/admin/shop.json');
-        $this->assertFalse($isGraphRequest->invoke($api, $uri));
+        $this->assertFalse($isAdminGraphRequest->invoke($api, $uri));
         $this->assertTrue($isRestRequest->invoke($api, $uri));
+        $this->assertFalse($isStorefrontGraphRequest->invoke($api, $uri));
         $this->assertTrue($isAuthableRequest->invoke($api, $uri));
 
         // Graph
         $uri = $api->getBaseUri()->withPath('/admin/api/graphql.json');
-        $this->assertTrue($isGraphRequest->invoke($api, $uri));
+        $this->assertTrue($isAdminGraphRequest->invoke($api, $uri));
         $this->assertFalse($isRestRequest->invoke($api, $uri));
+        $this->assertFalse($isStorefrontGraphRequest->invoke($api, $uri));
         $this->assertTrue($isAuthableRequest->invoke($api, $uri));
 
         // Token
         $uri = $api->getBaseUri()->withPath('/admin/oauth/access_token');
-        $this->assertFalse($isGraphRequest->invoke($api, $uri));
+        $this->assertFalse($isAdminGraphRequest->invoke($api, $uri));
         $this->assertTrue($isRestRequest->invoke($api, $uri));
+        $this->assertFalse($isStorefrontGraphRequest->invoke($api, $uri));
         $this->assertFalse($isAuthableRequest->invoke($api, $uri));
+        
+        // Storefront
+        $uri = $api->getBaseUri()->withPath('/api/graphql.json');
+        $this->assertFalse($isAdminGraphRequest->invoke($api, $uri));
+        $this->assertFalse($isRestRequest->invoke($api, $uri));
+        $this->assertTrue($isStorefrontGraphRequest->invoke($api, $uri));
+        $this->assertTrue($isAuthableRequest->invoke($api, $uri));
     }
 
     /**
