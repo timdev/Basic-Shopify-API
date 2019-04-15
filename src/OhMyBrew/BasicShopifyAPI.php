@@ -36,6 +36,14 @@ class BasicShopifyAPI implements LoggerAwareInterface
     const LOG_KEY = '[BasicShopifyAPI]';
 
     /**
+     * Paths to GraphQL endpoints.
+     */
+    const GRAPHQL_PATHS = [
+        'admin' => '/admin/api/graphql.json',
+        'storefront' => '/api/graphql.json'
+    ];
+
+    /**
      * The Guzzle client.
      *
      * @var \GuzzleHttp\Client
@@ -83,6 +91,12 @@ class BasicShopifyAPI implements LoggerAwareInterface
      * @var string
      */
     protected $apiSecret;
+
+    /**
+     * The Storefront API access token
+     * @var string
+     */
+    protected $storefrontToken;
 
     /**
      * If API calls are from a public or private app.
@@ -332,6 +346,18 @@ class BasicShopifyAPI implements LoggerAwareInterface
         $this->apiPassword = $apiPassword;
 
         return $this;
+    }
+
+    public function setStorefrontToken(string $token)
+    {
+        $this->storefrontToken = $token;
+
+        return $this;
+    }
+
+    public function getStorefrontToken()
+    {
+        return $this->storefrontToken;
     }
 
     /**
@@ -651,7 +677,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
      * @throws \Exception When missing api password is missing for private apps
      * @throws \Exception When missing access key is missing for public apps
      *
-     * @return object An Object of the Guzzle response, and JSON-decoded body
+     * @return object An object containing of the Guzzle response, and JSON-decoded body
      */
     private function _graph(string $query, array $variables = [], $path = '/admin/api/graphql.json')
     {
@@ -704,12 +730,12 @@ class BasicShopifyAPI implements LoggerAwareInterface
 
     public function graph(string $query, array $variables = [])
     {
-        return $this->_graph($query, $variables);
+        return $this->_graph($query, $variables, self::GRAPHQL_PATHS['admin']);
     }
 
     public function storefront(string $query, array $variables = [])
     {
-        return $this->_graph($query, $variables, '/api/graphql.json');
+        return $this->_graph($query, $variables, self::GRAPHQL_PATHS['storefront']);
     }
 
 
@@ -808,8 +834,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
      * Also modifies issues with redirects.
      *
      * @param Request $request
-     *
-     * @return void
+     * @return Request
      */
     public function authRequest(Request $request)
     {
@@ -829,7 +854,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
                     // Add the basic auth header
                     return $request->withHeader(
                         'Authorization',
-                        'Basic '.base64_encode("{$this->apiKey}:{$this->apiPassword}")
+                        'Basic ' . base64_encode("{$this->apiKey}:{$this->apiPassword}")
                     );
                 }
 
@@ -838,8 +863,22 @@ class BasicShopifyAPI implements LoggerAwareInterface
                     'X-Shopify-Access-Token',
                     $this->accessToken
                 );
-            } else {
-                // Checks for Graph
+
+            }
+
+            if ($this->isStorefrontGraphRequest($uri)) {
+                // Checks for Storefront-Graph
+                if(null === $this->storefrontToken){
+                    throw new Exception('Storefront access token required for Shopify Storefront GraphQL calls');
+                }
+                return $request->withHeader(
+                    'X-Shopify-Storefront-Access-Token',
+                    $this->storefrontToken
+                );
+            }
+
+            if ($this->isAdminGraphRequest($uri)) {
+                // Checks for Admin-Graph
                 if ($this->private && ($this->apiPassword === null && $this->accessToken === null)) {
                     // Private apps need password for use as access token
                     throw new Exception('API password/access token required for private Shopify GraphQL calls');
@@ -933,9 +972,21 @@ class BasicShopifyAPI implements LoggerAwareInterface
      *
      * @return bool
      */
-    protected function isGraphRequest(string $uri)
+
+    protected function isAdminGraphRequest(Uri $uri)
     {
-        return strpos($uri, 'graphql.json') !== false;
+        return $uri->getPath() === self::GRAPHQL_PATHS['admin'];
+    }
+
+    /**
+     * Determines if the request
+     * @param Uri $uri
+     *
+     * @return bool
+     */
+    protected function isStorefrontGraphRequest(Uri $uri)
+    {
+        return $uri->getPath() === self::GRAPHQL_PATHS['storefront'];
     }
 
     /**
@@ -947,7 +998,10 @@ class BasicShopifyAPI implements LoggerAwareInterface
      */
     protected function isRestRequest(string $uri)
     {
-        return $this->isGraphRequest($uri) === false;
+        return
+            $this->isAdminGraphRequest($uri) === false
+            &&
+            $this->isStorefrontGraphRequest($uri) === false;
     }
 
     /**
