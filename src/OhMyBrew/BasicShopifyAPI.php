@@ -681,11 +681,14 @@ class BasicShopifyAPI implements LoggerAwareInterface
      */
     private function _graph(string $query, array $variables = [], $path = '/admin/api/graphql.json')
     {
+        $this->waitForRateLimit();
+
         // Build the request
         $request = ['query' => $query];
         if (count($variables) > 0) {
             $request['variables'] = $variables;
         }
+
 
         // Update the timestamp of the request
         $tmpTimestamp = $this->requestTimestamp;
@@ -739,17 +742,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
     }
 
 
-    /**
-     * Runs a request to the Shopify API.
-     *
-     * @param string     $type   The type of request... GET, POST, PUT, DELETE
-     * @param string     $path   The Shopify API path... /admin/xxxx/xxxx.json
-     * @param array|null $params Optional parameters to send with the request
-     *
-     * @throws Exception
-     * @return object An object with properties containing the Guzzle Response and the JSON-decoded body content
-     */
-    public function rest(string $type, string $path, array $params = null)
+    private function waitForRateLimit()
     {
         // Check the rate limit before firing the request
         if ($this->isRateLimitingEnabled() && $this->requestTimestamp) {
@@ -763,6 +756,20 @@ class BasicShopifyAPI implements LoggerAwareInterface
                 usleep($waitTime * 1000);
             }
         }
+    }
+
+    /**
+     * Runs a request to the Shopify API.
+     *
+     * @param string     $type   The type of request... GET, POST, PUT, DELETE
+     * @param string     $path   The Shopify API path... /admin/xxxx/xxxx.json
+     * @param array|null $params Optional parameters to send with the request
+     *
+     * @return object An object with properties containing the Guzzle Response and the JSON-decoded body content
+     */
+    public function rest(string $type, string $path, array $params = null)
+    {
+        $this->waitForRateLimit();
 
         // Update the timestamp of the request
         $tmpTimestamp = $this->requestTimestamp;
