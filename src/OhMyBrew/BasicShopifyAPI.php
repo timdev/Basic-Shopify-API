@@ -690,6 +690,15 @@ class BasicShopifyAPI implements LoggerAwareInterface
             $request['variables'] = $variables;
         }
 
+        $limits = $this->apiCallLimits['graph'];
+
+
+        if($limits && $limits['left'] < 500 && $this->requestTimestamp > microtime(true)-1){
+            // restore rate of 50/second.
+            // we want at least 600 to before continuing.
+            $secondsToSleep = ((600 - $limits['left'])/50) + 2;
+            sleep($secondsToSleep);
+        }
 
         // Update the timestamp of the request
         $tmpTimestamp = $this->requestTimestamp;
