@@ -681,7 +681,8 @@ class BasicShopifyAPI implements LoggerAwareInterface
      */
     private function _graph(string $query, array $variables = [], $path = '/admin/api/graphql.json')
     {
-        $this->waitForRateLimit();
+
+//        $this->waitForRateLimit();
 
         // Build the request
         $request = ['query' => $query];
