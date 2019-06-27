@@ -743,11 +743,11 @@ class BasicShopifyAPI implements LoggerAwareInterface
      * @return object
      * @throws Exception
      */
-    protected function _graphWithRetry(string $query, array $variables = [], int $maxTries = 10)
+    protected function _graphWithRetry(string $query, array $variables = [], int $maxTries = 10, string $path = null)
     {
         $throttleCount = 0;
         while(true) {
-            $res = $this->_graph($query, $variables);
+            $res = $this->_graph($query, $variables, $path);
 
             // Handle errors
             if ($res->errors) {
@@ -780,7 +780,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
 
     public function graph(string $query, array $variables = [])
     {
-        return $this->_graphWithRetry($query, $variables, self::GRAPHQL_PATHS['admin']);
+        return $this->_graphWithRetry($query, $variables, 10, self::GRAPHQL_PATHS['admin']);
     }
 
     public function storefront(string $query, array $variables = [])
