@@ -682,8 +682,6 @@ class BasicShopifyAPI implements LoggerAwareInterface
     private function _graph(string $query, array $variables = [], $path = '/admin/api/graphql.json')
     {
 
-//        $this->waitForRateLimit();
-
         // Build the request
         $request = ['query' => $query];
         if (count($variables) > 0) {
@@ -729,7 +727,6 @@ class BasicShopifyAPI implements LoggerAwareInterface
                 'actualCost'    => (int) $calls->actualQueryCost,
             ];
         }
-
         $this->log('Graph response: '.json_encode(property_exists($body, 'errors') ? $body->errors : $body->data));
 
         // Return Guzzle response and JSON-decoded body
@@ -741,9 +738,49 @@ class BasicShopifyAPI implements LoggerAwareInterface
         ];
     }
 
+    /**
+     * Wraps _graph() with exponential backoff in case of throttling.
+     * @return object
+     * @throws Exception
+     */
+    protected function _graphWithRetry(string $query, array $variables = [], int $maxTries = 10)
+    {
+        $throttleCount = 0;
+        while(true) {
+            $res = $this->_graph($query, $variables);
+
+            // Handle errors
+            if ($res->errors) {
+
+                // Throttled?
+                if ($res->body[0]->message && $res->body[0]->message === 'Throttled'){
+
+                    // Only retry for so long.
+                    if ($throttleCount === $maxTries){
+                        $this->logger->error("Throttled {$maxTries} times by Shopify.  Giving up.");
+                        throw new \RuntimeException('Shopify was too busy to get us the data we need.  Please try again later.');
+                    }
+
+                    // Retry with exponential back-off.
+                    $sleepTime = 2 + ($throttleCount * 2);
+                    $this->logger->debug("ShopifyAPI Throttled.  Waiting {$sleepTime} seconds.");
+                    ++$throttleCount;
+                    sleep($sleepTime);
+                    continue;
+                }
+
+                $this->logger->error("Error while querying", ['body' => $res->body, 'status' => $res->response->getStatusCode()]);
+                throw new \RuntimeException("graphql query failed");
+            }
+
+            // Success, return result.
+            return $res;
+        }
+    }
+
     public function graph(string $query, array $variables = [])
     {
-        return $this->_graph($query, $variables, self::GRAPHQL_PATHS['admin']);
+        return $this->_graphWithRetry($query, $variables, self::GRAPHQL_PATHS['admin']);
     }
 
     public function storefront(string $query, array $variables = [])
@@ -1015,6 +1052,7 @@ class BasicShopifyAPI implements LoggerAwareInterface
      */
     protected function isRestRequest(string $uri)
     {
+        $uri = new Uri($uri);
         return
             $this->isAdminGraphRequest($uri) === false
             &&
