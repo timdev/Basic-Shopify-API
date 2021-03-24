@@ -1093,4 +1093,19 @@ class BasicShopifyAPI implements LoggerAwareInterface
         // REST request
         return preg_replace('/\/admin(\/api)?\//', "/admin/api/{$this->version}/", $uri);
     }
+
+    /**
+     * Determines if the request is to Graph API.
+     *
+     * @param string $uri The request URI.
+     *
+     * @return bool
+     */
+    protected function isGraphRequest(string $uri): bool
+    {
+        $uri = new Uri($uri);
+        return $this->isAdminGraphRequest($uri) || $this->isStorefrontGraphRequest($uri);
+    }
+
+
 }
